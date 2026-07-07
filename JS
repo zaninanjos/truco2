@@ -1,0 +1,165 @@
+const naipes = ['♦', '♠', '♥', '♣'];
+const valores = ['4', '5', '6', '7', 'Q', 'J', 'K', 'A', '2', '3'];
+
+// Força base das cartas (índice maior = mais forte)
+const forcaBase = {'4': 0, '5': 1, '6': 2, '7': 3, 'Q': 4, 'J': 5, 'K': 6, 'A': 7, '2': 8, '3': 9};
+// Força dos naipes para as manilhas (Paus > Copas > Espadas > Ouros)
+const forcaNaipe = {'♣': 4, '♥': 3, '♠': 2, '♦': 1};
+
+let baralho = [];
+let maoJogador = [];
+let maoCpu = [];
+let cartaVira = null;
+let valorManilha = '';
+
+let cartaMesaJogador = null;
+let cartaMesaCpu = null;
+
+let placarJogador = 0;
+let placarCpu = 0;
+
+// Elementos da tela
+const playerHandEl = document.getElementById('player-hand');
+const cpuHandEl = document.getElementById('cpu-hand');
+const playAreaEl = document.getElementById('play-area');
+const viraCardEl = document.getElementById('vira-card');
+const scoreJogadorEl = document.getElementById('player-score');
+const scoreCpuEl = document.getElementById('cpu-score');
+
+function criarBaralho() {
+    baralho = [];
+    for (let naipe of naipes) {
+        for (let valor of valores) {
+            baralho.push({ valor, naipe });
+        }
+    }
+}
+
+function embaralhar() {
+    for (let i = baralho.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [baralho[i], baralho[j]] = [baralho[j], baralho[i]];
+    }
+}
+
+function definirManilha() {
+    let indexVira = valores.indexOf(cartaVira.valor);
+    // A manilha é a próxima carta na ordem. Se o vira for 3 (último), a manilha é o 4 (primeiro)
+    let indexManilha = (indexVira + 1) % valores.length;
+    valorManilha = valores[indexManilha];
+}
+
+function calcularForca(carta) {
+    if (carta.valor === valorManilha) {
+        // Se for manilha, a força base é 100 + a força do naipe
+        return 100 + forcaNaipe[carta.naipe];
+    }
+    // Se não for manilha, retorna a força normal da carta
+    return forcaBase[carta.valor];
+}
+
+function iniciarRodada() {
+    cartaMesaJogador = null;
+    cartaMesaCpu = null;
+    playAreaEl.innerHTML = '';
+    
+    criarBaralho();
+    embaralhar();
+    
+    maoJogador = [baralho.pop(), baralho.pop(), baralho.pop()];
+    maoCpu = [baralho.pop(), baralho.pop(), baralho.pop()];
+    cartaVira = baralho.pop();
+    
+    definirManilha();
+    renderizarVira();
+    renderizarMaos();
+}
+
+function renderizarVira() {
+    viraCardEl.className = 'card';
+    if (cartaVira.naipe === '♥' || cartaVira.naipe === '♦') viraCardEl.classList.add('red-suit');
+    else viraCardEl.classList.add('black-suit');
+    viraCardEl.innerHTML = `<div>${cartaVira.valor}</div><div>${cartaVira.naipe}</div>`;
+}
+
+function renderizarMaos() {
+    playerHandEl.innerHTML = '';
+    maoJogador.forEach((carta, index) => {
+        const cartaEl = document.createElement('div');
+        cartaEl.className = 'card';
+        if (carta.naipe === '♥' || carta.naipe === '♦') cartaEl.classList.add('red-suit');
+        else cartaEl.classList.add('black-suit');
+        
+        cartaEl.innerHTML = `<div>${carta.valor}</div><div>${carta.naipe}</div>`;
+        cartaEl.onclick = () => jogarCarta(index, 'jogador');
+        playerHandEl.appendChild(cartaEl);
+    });
+
+    cpuHandEl.innerHTML = '';
+    maoCpu.forEach(() => {
+        const cartaEl = document.createElement('div');
+        cartaEl.className = 'card back';
+        cpuHandEl.appendChild(cartaEl);
+    });
+}
+
+function jogarCarta(index, quemJogou) {
+    if (quemJogou === 'jogador' && !cartaMesaJogador) {
+        cartaMesaJogador = maoJogador.splice(index, 1)[0];
+        renderizarMaos();
+        mostrarCartaNaMesa(cartaMesaJogador);
+
+        // CPU joga em seguida
+        setTimeout(jogarCartaCpu, 1000);
+    }
+}
+
+function jogarCartaCpu() {
+    if (maoCpu.length > 0) {
+        // CPU joga uma carta aleatória da mão
+        let indexAleatorio = Math.floor(Math.random() * maoCpu.length);
+        cartaMesaCpu = maoCpu.splice(indexAleatorio, 1)[0];
+        renderizarMaos();
+        mostrarCartaNaMesa(cartaMesaCpu);
+        
+        setTimeout(avaliarTurno, 1000);
+    }
+}
+
+function mostrarCartaNaMesa(carta) {
+    const cartaMesa = document.createElement('div');
+    cartaMesa.className = 'card';
+    if (carta.naipe === '♥' || carta.naipe === '♦') cartaMesa.classList.add('red-suit');
+    else cartaMesa.classList.add('black-suit');
+    cartaMesa.innerHTML = `<div>${carta.valor}</div><div>${carta.naipe}</div>`;
+    playAreaEl.appendChild(cartaMesa);
+}
+
+function avaliarTurno() {
+    let forcaJogador = calcularForca(cartaMesaJogador);
+    let forcaCpu = calcularForca(cartaMesaCpu);
+
+    if (forcaJogador > forcaCpu) {
+        alert("Você venceu esta mão!");
+        placarJogador++;
+    } else if (forcaCpu > forcaJogador) {
+        alert("CPU venceu esta mão!");
+        placarCpu++;
+    } else {
+        alert("Empate (Cangô)!");
+    }
+
+    // Atualiza placar
+    scoreJogadorEl.innerText = placarJogador;
+    scoreCpuEl.innerText = placarCpu;
+
+    // Limpa a mesa para o próximo turno
+    cartaMesaJogador = null;
+    cartaMesaCpu = null;
+    playAreaEl.innerHTML = '';
+
+    // Se acabaram as cartas, termina a rodada
+    if (maoJogador.length === 0) {
+        alert("Fim da rodada! Peça Nova Rodada.");
+    }
+}
